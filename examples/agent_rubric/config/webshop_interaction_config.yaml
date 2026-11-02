@@ -1,0 +1,29 @@
+interaction:
+  - name: "webshop"
+    class_name: "verl.interactions.webshop_interaction.WebshopInteraction"
+    config:
+      webshop_root: "${oc.env:WEBSHOP_ROOT}"
+      file_path: "${oc.env:WEBSHOP_PRODUCTS_JSON,}"
+      # WebShop-small is a coupled catalog protocol. When enabled, the
+      # interaction forces items_shuffle_1000.json, synthetic goals, 1000
+      # products, and therefore the official indexes_1k Lucene index.
+      use_small: "${oc.env:WEBSHOP_USE_SMALL,False}"
+      human_goals: "${oc.env:WEBSHOP_HUMAN_GOALS,True}"
+      num_products: "${oc.env:WEBSHOP_NUM_PRODUCTS,}"
+      observation_mode: "text_rich"
+      seed: 1234
+      # Reward modes:
+      #   official: native continuous WebShop score in [0, 1]
+      #   r2: official score minus rate-based invalid/repetition penalties
+      #   hybrid: 0.5 * official score + 0.5 * strict success minus the same
+      #           rate-based invalid/repetition penalties
+      #   gigpo: 10 for strict success, 0 for failure, minus 0.1 per invalid action
+      reward_mode: "${oc.env:WEBSHOP_REWARD_MODE,}"
+      # The generic interaction remains benchmark-native unless a WebShop
+      # training entry point explicitly selects another reward. Keep the
+      # legacy R2 switch for old commands that do not set reward_mode.
+      r2_reward_enabled: "${oc.env:WEBSHOP_R2_REWARD_ENABLE,False}"
+      r2_invalid_action_coef: "${oc.env:WEBSHOP_R2_INVALID_ACTION_COEF,0.05}"
+      r2_repeat_action_coef: "${oc.env:WEBSHOP_R2_REPEAT_ACTION_COEF,0.025}"
+      gigpo_success_reward: "${oc.env:WEBSHOP_GIGPO_SUCCESS_REWARD,10.0}"
+      gigpo_invalid_action_coef: "${oc.env:WEBSHOP_GIGPO_INVALID_ACTION_COEF,0.1}"

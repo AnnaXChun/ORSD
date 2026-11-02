@@ -1,0 +1,591 @@
+# Format checks enforced on CI:
+# 1. Comments must appear above each field.
+# 2. There must be a blank line between each field.
+# 3. Inline comments (after a field on the same line) are not allowed.
+# 4. Indentation level is respected for nested fields.
+
+# specify the default per-component configs
+defaults:
+
+  # <folder_name>@<field_name>.<field_name>: <yaml_file_name>
+  # actor_rollout_ref.actor: trainer/config/actor/dp_actor.yaml
+  - actor@actor_rollout_ref.actor: dp_actor
+
+  # data: trainer/config/data/legacy_data.yaml
+  - data@data: legacy_data
+
+  # (Rule-based) Reward manager config.
+  - reward_manager@reward_manager
+
+  # Reference model config.
+  # Reference model will be enabled when actor.use_kl_loss or/and algorithm.use_kl_in_reward is/are True.
+  - ref@actor_rollout_ref.ref: dp_ref
+
+  # Rollout model config.
+  - rollout@actor_rollout_ref.rollout: rollout
+
+  # Model config.
+  - model@actor_rollout_ref.model: hf_model
+
+  # Critic model config.
+  - critic@critic: dp_critic
+
+  # Reward model config.
+  - reward_model@reward_model: dp_reward_loop
+
+  # Rollout correction config.
+  - algorithm@algorithm.rollout_correction: rollout_correction
+
+  # load the reference default config, then apply the fields in the current yaml
+  # self config override anything above
+  - _self_
+
+# config for actor, rollout and reference model
+actor_rollout_ref:
+
+  # Whether it's a hybrid engine, currently only supports hybrid engine
+  hybrid_engine: true
+
+  # Timeout for operations executed against the process group
+  nccl_timeout: 600
+
+  # Rollout model config.
+  rollout:
+
+    # for huge model, layered summon can save memory (prevent OOM) but make it slower
+    layered_summon: False
+
+# custom reward function definition
+custom_reward_function:
+
+  # The path to the file containing your customized reward function.
+  # If not specified, pre-implemented reward functions will be used.
+  path: null
+
+  # The name of the reward function within the specified file. Default is 'compute_score'.
+  name: compute_score
+
+# config for the algorithm
+algorithm:
+
+  # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+  _target_: verl.trainer.config.AlgoConfig
+
+  # Discount factor for future rewards
+  gamma: 1.0
+
+  # Trade-off between bias and variance in the GAE estimator
+  lam: 1.0
+
+  # Advantage estimator type: "gae", "grpo", "reinforce_plus_plus", etc.
+  adv_estimator: gae
+
+  # Whether to normalize advantages by std (specific to GRPO)
+  norm_adv_by_std_in_grpo: True
+
+  # Whether to enable in-reward KL penalty
+  use_kl_in_reward: False
+
+  # How to estimate KL divergence: "kl", "abs", "mse", "low_var_kl", or "full"
+  kl_penalty: kl
+
+  # KL control configuration
+  kl_ctrl:
+
+    # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+    _target_: verl.trainer.config.KLControlConfig
+
+    # KL control type: "fixed" or "adaptive"
+    type: fixed
+
+    # Initial coefficient for KL penalty
+    kl_coef: 0.001
+
+    # Horizon value for adaptive controller (if enabled)
+    horizon: 10000
+
+    # Target KL divergence (used for adaptive controller)
+    target_kl: 0.1
+
+  # Whether to enable preference feedback PPO
+  use_pf_ppo: False
+
+  # Preference feedback PPO settings
+  pf_ppo:
+
+    # Method for reweighting samples: "pow", "max_min", or "max_random"
+    reweight_method: pow
+
+    # Power used for weight scaling in "pow" method
+    weight_pow: 2.0
+
+  # Teacher-student token-level GRPO credit assignment
+  token_credit:
+
+    # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+    _target_: verl.trainer.config.TokenCreditConfig
+
+    # Whether to add sampled-token teacher information to GRPO advantages
+    enable: False
+
+    # Token credit rule
+    mode: additive_gap
+
+    # A_it = A_i + alpha * (teacher_log_prob - student_log_prob)
+    alpha: 0.01
+
+    # Legacy polarity_gap-only robust scale quantile
+    scale_quantile: 0.5
+
+    # Legacy polarity_gap-only numerical scale floor
+    min_scale: 0.0001
+
+    # centered_opd-only normalization, multiplier bounds, and schedule.
+    centered_clip: 2.0
+    centered_multiplier_min: 0.5
+    centered_multiplier_max: 1.5
+
+    # rank_attenuation-only rank cutoff and no-spread guard.
+    rank_attenuation_strength: 0.2
+    rank_conflict_fraction: 0.25
+    rank_min_gap_range: 0.0001
+    linear_decay_enable: False
+    linear_decay_final_scale: 0.0
+    linear_decay_start_step: 0
+    linear_warmup_enable: False
+    linear_warmup_steps: 0
+    linear_warmup_initial_scale: 0.0
+
+    # Batch key for comparison-context sampled-token log probabilities.
+    # Rubric runs use rubric_actor_log_probs; no-rubric runs may use ref_log_prob.
+    teacher_log_prob_key: ref_log_prob
+
+    # Batch key for student sampled-token log probabilities
+    student_log_prob_key: old_log_probs
+
+    # OPSD-only rubric-conditioned teacher: current_actor or reference_policy
+    opsd_teacher_source: current_actor
+
+    # Optional batch key for rubric-validated trajectory or token eligibility
+    active_mask_key: null
+
+    # Legacy polarity_gap-only mean-one normalization
+    preserve_trajectory_mean: True
+
+    # Batch key for full-vocabulary outcome-contrastive JS divergence
+    outcome_js_key: outcome_contrastive_js
+
+    # Batch key for rollout-level outcome-contrastive eligibility
+    outcome_active_mask_key: outcome_contrastive_active
+
+    # Verifier score at or above which a rollout is treated as correct
+    outcome_success_threshold: 0.5
+
+    # Minimum correct rollouts required to build a non-self positive reference
+    outcome_min_correct: 2
+
+    # Prompt budget for the problem and privileged reference response
+    outcome_teacher_max_prompt_length: 10240
+
+    # Whether the positive/negative conditioned actor forwards use Qwen thinking
+    outcome_teacher_enable_thinking: False
+
+    # Temperature for the two compared current-actor distributions
+    outcome_distribution_temperature: 1.0
+
+    # Response-token chunk size used for full-vocabulary JS computation
+    outcome_js_chunk_size: 128
+
+    # Conditioned current-actor forward microbatch per GPU
+    outcome_micro_batch_size_per_gpu: 1
+
+    # Optional privileged rubric generation and teacher-conditioning pipeline
+    rubric_pipeline:
+
+      # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+      _target_: verl.trainer.config.RubricPipelineConfig
+
+      # Whether to load or generate problem-only rubrics
+      enable: False
+
+      # Rubric source: http, dataset, actor_rollout, or actor_rollout_group_hints
+      backend: http
+
+      # Top-level parquet columns used by the dataset backend
+      rubric_column: rubric
+      valid_column: rubric_valid
+
+      # OpenAI-compatible base URL of the fixed teacher vLLM server
+      base_url: http://127.0.0.1:8001/v1
+
+      # Model name exposed by the teacher vLLM server
+      model: null
+
+      # Environment variable containing the API key; local vLLM may use EMPTY
+      api_key_env: RUBRIC_API_KEY
+
+      # Per-request timeout in seconds
+      timeout: 120.0
+
+      # Number of problem-solving criteria requested from the teacher
+      rubrics_per_prompt: 8
+      min_rubrics_per_prompt: 4
+      min_reliable_rubrics_per_prompt: 4
+      reliability_threshold: 0.5
+      correctness_threshold: 0.5
+      # Outcome supplied to rubric grouping: strict_success, training_reward,
+      # or official_reward. WebShop R2 uses training_reward in its launcher.
+      outcome_score_source: strict_success
+      require_group_outcome_contrast: True
+      # Opt-in offline-rubric ablation; preserve current-group online eligibility gates.
+      dataset_match_online_gates: False
+      outcome_contrast_epsilon: 1.0e-6
+      require_outcome_aligned_gap: False
+      min_outcome_gap_alignment: 0.0
+      max_candidate_rubrics_per_group: 24
+
+      # Maximum rubric-generation response length
+      max_tokens: 2048
+
+      # Rubric generation temperature
+      temperature: 1.0
+
+      # Rubric generation top-p
+      top_p: 0.95
+
+      # Whether the rubric generator itself uses Qwen thinking mode
+      generator_enable_thinking: True
+      judge_enable_thinking: True
+      judge_max_tokens: 1024
+      judge_temperature: 0.0
+
+      # Whether the rubric-conditioned current-actor prompt uses Qwen thinking mode
+      teacher_enable_thinking: True
+
+      # Maximum rubric-conditioned current-actor prompt length
+      teacher_max_prompt_length: 2048
+
+      # Maximum concurrent teacher-vLLM requests
+      max_workers: 8
+
+      # Maximum rubric characters injected into a teacher prompt
+      max_rubric_chars: 4000
+
+      # Parser and task-group evidence bounds
+      max_rubric_item_chars: 280
+      max_trajectories_per_prompt: 1
+      max_trajectory_chars: 6000
+      group_hint_candidate_count: 1
+      group_hint_select_by_correlation: False
+      group_hint_select_lowest_correlation: False
+      group_hint_fallback_on_unranked: False
+      group_hint_force_first_candidate: False
+      group_hint_random_candidate: False
+      group_hint_fixed_candidate_index: -1
+      group_hint_evidence_order: outcome_anchored_random
+      group_hint_prompt_style: process_rubric_5_to_k
+      group_hint_guarded_selection: False
+      group_hint_min_selected_correlation: 0.0
+      group_hint_min_correlation_improvement: 0.0
+      snapshot_enable: False
+      snapshot_stop_after_export: False
+      snapshot_step: 300
+      snapshot_batch_size: 8
+      snapshot_max_generation_attempts: 4
+      snapshot_output_path: null
+
+      # Number of successful problem rubrics cached on the trainer driver
+      cache_size: 10000
+
+      # Whether a rubric-generation error aborts training instead of falling back to GRPO
+      fail_on_error: False
+
+      # Opt-in: per-trajectory actor generation -> group pool -> cloud judge.
+      # Matrix rows are trajectories, columns are deduplicated criteria. Judge
+      # scores measure satisfaction only; Spearman correlation with environment
+      # reward validates each criterion across every trajectory in the group.
+      pool_enable: False
+      # Pool only: cloud gets all visible action/observation evidence. Generator
+      # fits its real token budget independently; False restores legacy chars.
+      pool_full_trajectory: True
+      # False removes the current trajectory from the generator prompt while
+      # retaining the task. The cloud judge still sees full trajectory evidence.
+      pool_generator_include_trajectory: True
+      # structured_json or simple_numbered. The latter sends no few-shot demo.
+      pool_generator_prompt_style: structured_json
+      # 0: model context minus generation output and reserve; positive: cap the
+      # complete rendered generator input (task + template + trajectory).
+      pool_generator_max_input_tokens: 0
+      pool_generator_context_reserve_tokens: 256
+      # Only active together with pool_enable; independent of token-credit alpha.
+      pool_generator_loss_enable: False
+      pool_generator_loss_coef: 0.01
+      pool_generator_micro_batch_size: 1
+      pool_generator_clip_ratio: 0.2
+      # False preserves bundle-level PPO. True assigns each rubric's normalized
+      # selected reward only to that rubric's response-token span.
+      pool_generator_item_credit_enable: False
+      pool_generator_linear_decay_enable: False
+      pool_generator_linear_decay_final_scale: 0.0
+      pool_generator_linear_decay_start_step: 0
+      pool_generator_linear_warmup_enable: False
+      pool_generator_linear_warmup_steps: 0
+      pool_generator_linear_warmup_initial_scale: 0.0
+      pool_judge_base_url: https://api.example.com/v1
+      pool_judge_model: null
+      pool_judge_api_key_env: DASHSCOPE_API_KEY
+      pool_judge_timeout: 90.0
+      pool_judge_concurrency: 8
+      pool_judge_retries: 2
+      pool_judge_max_tokens: 4096
+      pool_judge_items_per_request: 64
+      pool_judge_send_enable_thinking: True
+      # Pool generator emits between this value and rubrics_per_prompt items.
+      pool_min_rubrics_per_bundle: 5
+      pool_min_correlation: 0.2
+      # Reject broad criteria whose near-constant judge scores acquire an
+      # accidental rank correlation in a small rollout group.
+      pool_min_score_std: 0.08
+      pool_min_score_range: 0.2
+      # 1.0 preserves strict complete-matrix selection. A lower value can
+      # tolerate transient cloud failures while requiring at least 3 scores.
+      pool_min_judge_coverage: 1.0
+      # When enabled, skip a valid candidate if its trajectory-score ranking
+      # has at least this Spearman similarity to an already selected rubric.
+      pool_behavior_dedup_enable: False
+      pool_max_behavior_similarity: 0.9
+      # Reject the complete bundle if any criterion copies or closely
+      # paraphrases the built-in format demonstration.
+      pool_fewshot_copy_similarity: 0.82
+      pool_max_selected: 8
+      pool_min_selected: 1
+      # valid: credit every criterion that passes screening (v5 behavior).
+      # selected: credit only criteria included in the final teacher context.
+      # selected_spearman_sum: sum Spearman over selected criteria in each bundle.
+      # selected_loo_spearman_relu: mean positive LOO Spearman excess, with support gates.
+      pool_generator_reward_source: valid
+      pool_generator_support_threshold: 0.5
+      pool_generator_min_satisfied: 2
+      pool_generator_min_unsatisfied: 2
+      # null: <trainer.default_local_dir>/rubric_pool_audit
+      pool_audit_dir: null
+      # compact stores only parsed rubrics, selection scores and advantages.
+      # full additionally stores complete trajectories/prompts/matrices; off disables files.
+      pool_audit_mode: compact
+      pool_audit_every_n_steps: 1
+      # Per-request cloud progress is noisy and can block Ray log forwarding.
+      pool_console_progress: False
+
+# config for the trainer
+trainer:
+
+  # Structured update/trajectory diagnostics for paper analysis. Large raw
+  # tensors are reduced before writing; logs are excluded by .gitignore.
+  analysis_log_enable: False
+  analysis_log_dir: null
+  analysis_log_every_n_steps: 1
+
+  # Whether to balance batch sizes across distributed workers
+  balance_batch: True
+
+  # Number of epochs in training
+  total_epochs: 30
+
+  # Total training steps (can be set explicitly or derived from epochs)
+  total_training_steps: null
+
+  # Project name for experiment tracking (e.g., wandb)
+  project_name: verl_examples
+
+  # Experiment name for run identification in tracking tools
+  experiment_name: gsm8k
+
+  # Logging backends to use: "console", "wandb", etc.
+  logger: ["console", "wandb"]
+
+  # Number of generations to log during validation
+  log_val_generations: 0
+
+  # Directory for logging rollout data; no dump if null
+  rollout_data_dir: null
+
+  # Directory for logging validation data; no dump if null
+  validation_data_dir: null
+
+  # Number of nodes used in the training
+  nnodes: 1
+
+  # Number of GPUs per node
+  n_gpus_per_node: 8
+
+  # Save frequency (by iteration) for model checkpoints
+  save_freq: -1
+
+  # ESI refers to the elastic server instance used during training, similar to the training plan. For example,
+  # if you purchase 10 hours of computing power, the ESI will automatically shut down after 10 hours of training.
+  # To ensure a checkpoint is saved before ESI shuts down, the system will start saving a checkpoint in advance.
+  # The advance time is calculated as: Advance Time = Longest historical step duration + Checkpoint save duration + esi_redundant_time.
+  # Here, esi_redundant_time is a user-defined value that further extends the advance time for added safety.
+  esi_redundant_time: 0
+
+  # Resume mode: "auto", "disable", or "resume_path"
+  # "auto": resume from last checkpoint if available
+  # "disable": start from scratch
+  # "resume_path": resume from a user-defined path
+  resume_mode: auto
+
+  # Path to resume training from (only used when resume_mode is "resume_path")
+  resume_from_path: null
+
+  # Whether to run validation before training begins
+  val_before_train: True
+
+  # Whether to run validation only
+  val_only: False
+
+  # Validation frequency (in training iterations)
+  test_freq: -1
+
+  # Number of iterations to warm up the critic before updating policy
+  critic_warmup: 0
+
+  # Default path to distributed filesystem for saving checkpoints
+  default_hdfs_dir: null
+
+  # Whether to delete local checkpoints after loading
+  del_local_ckpt_after_load: False
+
+  # Default local directory for saving checkpoints
+  default_local_dir: checkpoints/${trainer.project_name}/${trainer.experiment_name}
+
+  # Maximum number of actor checkpoints to keep
+  max_actor_ckpt_to_keep: null
+
+  # Maximum number of critic checkpoints to keep
+  max_critic_ckpt_to_keep: null
+
+  # Timeout (in seconds) for Ray worker to wait for registration
+  ray_wait_register_center_timeout: 300
+
+  # Device to run training on (e.g., "cuda", "cpu")
+  device: cuda
+
+  # whether to use legacy worker implementation
+  #  mode: "auto", "enable", or "disable"
+  use_legacy_worker_impl: auto
+
+# profiler configs
+global_profiler:
+
+  # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+  _target_: verl.utils.profiler.ProfilerConfig
+
+  # Profiling tool: choose between nsys, npu, torch, torch_memory
+  tool: null
+
+  # profile steps
+  steps: null
+
+  # Whether to combine continuous steps into one database.
+  ## If True, worker.profiler.discrete must be False, [1,2] in one, [5] in another.
+  ## If False, [1] in one, [2] in another, [5] in another.
+  profile_continuous_steps: False
+
+  # Path to save profiling contents
+  save_path: "outputs/profile"
+
+  # Specific tool configs, can use +profiler.tool_config.[tool].xxx to config
+  global_tool_config:
+
+    # nsys config
+    nsys:
+
+      # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+      _target_: verl.utils.profiler.config.NsightToolConfig
+
+      # True for each task has its own database, False for all tasks in one training step share one database.
+      discrete: False
+
+      # controller Nvidia Nsight Systems Options. Must set when profile_steps is not None.
+      ## reference https://docs.nvidia.com/nsight-systems/UserGuide/index.html
+      ## reference https://docs.ray.io/en/latest/ray-observability/user-guides/profiling.html
+      controller_nsight_options:
+
+        # Select the API(s) to be traced.
+        trace: "cuda,nvtx,cublas,ucx"
+
+        # Track the GPU memory usage by CUDA kernels. Must be string type "true" or "false".
+        cuda-memory-usage: "true"
+
+        # CUDA graphs will be traced as a whole
+        cuda-graph-trace: "graph"
+
+      # worker Nvidia Nsight Systems Options. Must set when profile_steps is not None.
+      worker_nsight_options:
+
+        # Select the API(s) to be traced.
+        trace: "cuda,nvtx,cublas,ucx"
+
+        # Track the GPU memory usage by CUDA kernels. Must be string type "true" or "false".
+        cuda-memory-usage: "true"
+
+        # CUDA graphs will be traced as a whole
+        cuda-graph-trace: "graph"
+
+        # Profiling only in a range of torch.cuda.profiler.start and stop. Do not change this config.
+        capture-range: "cudaProfilerApi"
+
+        # Specify the desired behavior when a capture range ends.
+        # In verl we need the torch.cuda.profiler.start/stop pair to repeats n times.
+        # valid values are "repeat-shutdown:n" or null.
+        # For normal whole step profiling, n = len(profile_steps);
+        # but for discrete profiling, n = len(profile_steps) * Number(subtasks).
+        # Or you can just leave it null and the program will use n = len(profile_steps) * 6;
+        capture-range-end: null
+
+        # Send signal to the target application's process group. We let the program to exit by itself.
+        kill: none
+
+    # enable memory visualization for debugging memory usage
+    torch_memory:
+
+      #  Maximum number of allocation entries to record
+      trace_alloc_max_entries: 100_000
+
+      # The depth of the call stack to capture for each allocation
+      stack_depth: 32
+
+      # 'alloc': records only allocation events || 'state': records memory state changes || 'all': records both.
+      context: "all"
+
+      # 'python': records Python stacks || 'cpp': records C++ stacks (available in some versions) || 'all': records both.
+      stacks: "all"
+
+      # devices, record_context etc.
+      kw_args: {}
+
+# configs for TransferQueue
+transfer_queue:
+
+  # Whether to enable transfer queue
+  enable: False
+
+# configs related to ray
+ray_kwargs:
+
+  # configs related to ray initialization
+  ray_init:
+
+    # Number of CPUs for Ray. Use a fixed number instead of null when using SLURM.
+    num_cpus: null
+
+  # Path to save Ray timeline JSON for performance profiling
+  timeline_json_file: null
+
+# Preserve existing ORSD settings unless explicitly selecting a diagnostic/baseline.
+credit_assignment:
+  type: orsd
+
+# Replay itself uses examples/attention_traceback/config.yaml.
+attention_traceback:
+  capture_dir: null

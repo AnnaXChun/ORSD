@@ -1,0 +1,13 @@
+interaction:
+  - name: "alfworld"
+    class_name: "verl.interactions.alfworld_interaction.AlfworldInteraction"
+    config:
+      config_path: "${oc.env:ALFWORLD_CONFIG}"
+      data_dir: "${oc.env:ALFWORLD_DATA}"
+      split: "train"
+      seed: 1234
+      # Keep the reusable interaction benchmark-native unless an ALFWorld v2
+      # training entry point explicitly enables the shaped reward.
+      r2_reward_enabled: "${oc.env:ALFWORLD_R2_REWARD_ENABLE,False}"
+      r2_success_scale: "${oc.env:ALFWORLD_R2_SUCCESS_SCALE,10.0}"
+      r2_invalid_action_coef: "${oc.env:ALFWORLD_R2_INVALID_ACTION_COEF,0.1}"

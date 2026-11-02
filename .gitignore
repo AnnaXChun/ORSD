@@ -1,0 +1,24 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+wandb/
+checkpoints/
+logs/
+results/
+experiment_outputs/
+.tmp/
+Data/
+rubric/
+*.parquet
+*.pt
+*.pth
+*.safetensors
+.DS_Store

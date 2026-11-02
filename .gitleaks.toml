@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Reviewed upstream identifiers and prose, not credentials"
+regexTarget = "line"
+regexes = [
+  '''^The\ key\ configurations\ are:$''',
+  '''^\ \ \ \ \ \ \ \ \ \ \ \ idx,\ max_seq_len=max_prompt_length,\ pad_token_id=self\.processor\.tokenizer\.pad_token_id,\ left_pad=True$''',
+  '''^_padding_size_key\ =\ "_padding_size_key_x123d"$''',
+]

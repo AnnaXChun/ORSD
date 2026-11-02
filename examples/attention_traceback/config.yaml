@@ -1,0 +1,21 @@
+credit_assignment:
+  type: attention_traceback
+attention_traceback:
+  intervention: mask_span
+  delta_threshold: null
+  max_trace_depth: 6
+  timeout_root_window: 3
+  last_layers: 4
+  seed: 1234
+  dtype: bfloat16
+  device: cuda:0
+  attention_query_chunk: 32
+  # Match the existing ORSD context budget; dense bf16 mask uses ~3.1 GiB at 40960 tokens.
+  # Explicitly choose drop_span on smaller GPUs; never silently mix methods.
+  max_dense_mask_tokens: 40960
+  bootstrap_samples: 2000
+  threshold_quantiles: [0.0, 0.25, 0.5, 0.75, 0.9]
+  tasks: 50
+  trajectories_per_task: 4
+  scienceworld_version: 1.2.3
+  scienceworld_commit: 5d569f9e4ff43ab6242a3622f7e25f9bc367ccd1

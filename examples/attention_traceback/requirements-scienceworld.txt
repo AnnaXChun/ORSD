@@ -1,0 +1,3 @@
+# Optional new environment only. Install with --no-deps after checking py4j/Java.
+# Never use this file to update the server's existing ML environment.
+scienceworld==1.2.3

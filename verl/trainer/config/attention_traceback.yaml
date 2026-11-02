@@ -1,0 +1,28 @@
+# Diagnostic-only collection through the existing veRL async agent loop.
+defaults:
+  - ppo_trainer
+  - _self_
+
+credit_assignment:
+  type: attention_traceback
+
+attention_traceback:
+  capture_dir: null
+
+trainer:
+  val_only: true
+  val_before_train: true
+  resume_mode: disable
+  logger: [console]
+  project_name: attention_traceback
+  experiment_name: phase_a_diagnostic
+
+algorithm:
+  adv_estimator: grpo
+  token_credit:
+    enable: false
+    rubric_pipeline:
+      enable: false
+      pool_enable: false
+      pool_generator_loss_enable: false
+      snapshot_enable: false

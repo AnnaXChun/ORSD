@@ -1,0 +1,36 @@
+# Training extension of Phase A; defaults leave existing ORSD untouched.
+defaults:
+  - ppo_trainer
+  - _self_
+credit_assignment:
+  type: attention_traceback_train
+attention_traceback:
+  independent_sampling: true
+  alpha: 0.5
+  selection: attention
+  intervention: mask_span
+  mask_query_origin: action
+  delta_threshold: 0.001
+  depth_decay: 0.5
+  max_trace_depth: 6
+  timeout_root_window: 3
+  last_layers: 4
+  seed: 1234
+  dtype: float32
+  device: cuda:0
+  attention_query_chunk: 32
+  max_dense_mask_tokens: 40960
+  workers: 4
+  replay_visible_devices: '4,5,6,7'
+trainer:
+  use_legacy_worker_impl: enable
+  val_only: false
+algorithm:
+  adv_estimator: grpo
+  token_credit:
+    enable: false
+    rubric_pipeline:
+      enable: false
+      pool_enable: false
+      pool_generator_loss_enable: false
+      snapshot_enable: false
