@@ -1,5 +1,0 @@
-interaction:
-  - name: scienceworld
-    class_name: verl.interactions.scienceworld_interaction.ScienceworldInteraction
-    config:
-      observation_style: compact
